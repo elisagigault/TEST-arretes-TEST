@@ -17,6 +17,52 @@ padding:0;
 height:100%;
 font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
 }
+
+  #ficheArrete{
+
+position:absolute;
+right:20px;
+top:80px;
+
+width:320px;
+max-width:30vw;
+
+background:white;
+
+border-radius:12px;
+
+padding:16px;
+
+box-shadow:0 4px 20px rgba(0,0,0,0.2);
+
+z-index:1000;
+
+display:none;
+
+font-size:14px;
+line-height:1.4;
+
+}
+
+#ficheArrete h3{
+
+margin:0 0 8px 0;
+font-size:18px;
+
+}
+
+#ficheFermer{
+
+position:absolute;
+right:10px;
+top:8px;
+
+cursor:pointer;
+
+font-size:18px;
+
+color:#888;
+}
 #sidebar{
 
 position:absolute;
@@ -374,7 +420,9 @@ Occupation de voirie
 </div>
 
 </div>
+<div id="ficheArrete"></div>
 
+<div id="ficheArrete"></div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -566,7 +614,51 @@ return valeur;
 return d.toLocaleDateString("fr-FR");
 
 }
+function afficherFiche(feature){
 
+const div =
+document.getElementById("ficheArrete");
+
+div.style.display = "block";
+
+div.innerHTML =
+
+'<div id="ficheFermer">✕</div>' +
+
+'<h3>' +
+(feature.properties["Arrêté"] || "Demande en cours") +
+'</h3>' +
+
+'<div style="font-weight:600;margin-bottom:8px;">' +
+(feature.properties["Titre"] || "") +
+'</div>' +
+
+'<div style="color:' +
+getColor(feature.properties["Type"]) +
+';font-weight:bold;margin-bottom:8px;">● ' +
+(feature.properties["Type"] || "") +
+'</div>' +
+
+'<div style="font-size:13px;color:#666;">' +
+formatDateFR(feature.properties["Date début"]) +
+' → ' +
+formatDateFR(feature.properties["Date fin"]) +
+'</div>' +
+
+'<hr style="margin:10px 0;">' +
+
+'<div>' +
+(feature.properties["Détail"] || "") +
+'</div>';
+
+document.getElementById("ficheFermer")
+.onclick = function(){
+
+    div.style.display = "none";
+
+};
+
+}
 function getStatut(feature){
 
 const aujourdHui = new Date();
@@ -989,7 +1081,7 @@ couche.eachLayer(function(layer){
 
 if(layer.feature === f){
 
-layer.openPopup();
+afficherFiche(layer.feature);
 
 }
 
@@ -1153,7 +1245,7 @@ null
 }
 
 }).addTo(map);
-
+afficherFiche(feature);
 });
 
 layer.bindTooltip(
