@@ -608,7 +608,7 @@ f.properties["Arrêté"]
 
 :
 
-"demande-" + (f.properties["Titre"] || f.id)
+"demande-" + f.id
 
 )
 ).size;
@@ -1154,7 +1154,6 @@ sticky:true
 );
 
 layer.bindPopup(
-
 '<div style="min-width:260px;">' +
 
 '<div style="font-size:18px;font-weight:bold;">' +
@@ -1177,34 +1176,18 @@ formatDateFR(feature.properties["Date début"]) +
 formatDateFR(feature.properties["Date fin"]) +
 '</div>' +
 
-(
-
-feature.properties["Détail"]
-
-?
-
 '<hr style="margin:10px 0;">' +
 
-'<div style="font-size:13px;color:#555;">' +
-feature.properties["Détail"] +
-'</div>'
-
-:
-
-''
-
-)
-
-+
+'<div style="font-size:13px;">' +
+(feature.properties["Détail"] || "") +
+'</div>' +
 
 '</div>',
-
 {
-maxWidth:320
+maxWidth: 320
 }
-
 );
-
+``
 
 }
 
