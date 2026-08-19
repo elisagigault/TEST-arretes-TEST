@@ -608,7 +608,7 @@ f.properties["Arrêté"]
 
 :
 
-"demande-" + f.id
+"demande-" + (f.properties["Titre"] || f.id)
 
 )
 ).size;
@@ -1156,11 +1156,11 @@ sticky:true
 layer.bindPopup(
 '<div style="min-width:260px;">' +
 
-'<div style="font-size:18px;font-weight:bold;">' +
+'<div style="font-size:16px;font-weight:700;color:#1f2937;">'+
 (feature.properties["Arrêté"] || "Demande en cours") +
 '</div>' +
 
-'<div style="font-size:15px;font-weight:600;margin-top:4px;">' +
+'<div style="font-size:14px;font-weight:600;margin-top:6px;">' +
 (feature.properties["Titre"] || "") +
 '</div>' +
 
