@@ -142,7 +142,7 @@ border-left:4px solid #5aa9ff;
 
 border-radius:8px;
 
-margin-bottom:12px;
+margin-bottom:2px;
 
 }
 .statut{
@@ -250,9 +250,22 @@ display:flex;
 flex-direction:column;
 gap:4px;
 
-margin-bottom:14px;
+margin-bottom:8px;
 }
+#typesHeader{
 
+text-align:center;
+
+margin-top:2px !important;
+
+margin-bottom:8px;
+
+border-left:none;
+
+font-size:15px;
+font-weight:600;
+
+}
 </style>
 
 </head>
@@ -307,7 +320,7 @@ Tout afficher
 
 <div id="periodeInfo"></div>
 
-<div id="typesHeader" class="statut" style="margin-top:8px;">
+<div id="typesHeader" class="statut">
 ▼ Types d'arrêtés
 </div>
 
@@ -496,6 +509,25 @@ document.querySelectorAll(".typeFilter:checked")
 }
 
 
+function getNumeroSemaine(date){
+
+const d = new Date(date);
+
+d.setHours(0,0,0,0);
+
+d.setDate(
+d.getDate() + 4 - (d.getDay() || 7)
+);
+
+const debutAnnee =
+new Date(d.getFullYear(),0,1);
+
+return Math.ceil(
+(((d - debutAnnee) / 86400000) + 1) / 7
+);
+
+}
+
 function formatDateFR(valeur){
 
 if(!valeur){
@@ -576,30 +608,26 @@ f.properties["Arrêté"]
 
 :
 
-"demande-" + f.id
+"demande-" + (f.properties["Titre"] || f.id)
 
 )
 ).size;
 
 info.innerHTML =
 
-"<b>" + nbArretes + " arrêtés affichés</b><br>"
-
-+
-
-"📅 "
-
-+
-
-(debut ? formatDateFR(debut) : "Toutes dates")
-
-+
-
-" → "
-
-+
-
-(fin ? formatDateFR(fin) : "Toutes dates");
+"<b>" + nbArretes + " arrêtés affichés</b><br>" +
+"📅 " +
+(
+debut
+? "S" + getNumeroSemaine(debut) + " • " + formatDateFR(debut)
+: "Toutes dates"
+) +
+" → " +
+(
+fin
+? "S" + getNumeroSemaine(fin) + " • " + formatDateFR(fin)
+: "Toutes dates"
+);
 
 const groupes = {};
 
@@ -619,7 +647,7 @@ feature.properties["Arrêté"]
 :
 
 "demande-" +
-(feature.properties["description"] || "");
+(feature.properties["Titre"] || "");
 
 if(!groupes[statut]){
 groupes[statut] = {};
@@ -738,7 +766,7 @@ const types = [
 ...new Set(
 features
 .map(f => f.properties["Type"])
-.filter(t => t && t !== "Déviation")
+.filter(t => t)
 )
 ];
 
@@ -770,7 +798,7 @@ numero.startsWith("demande-")
 
 ?
 
-premiereFeature.properties["description"]
+premiereFeature.properties["Titre"]
 
 :
 
@@ -789,7 +817,7 @@ numero.startsWith("demande-")
 
 +
 
-(premiereFeature.properties["description"] || "")
+(premiereFeature.properties["Titre"] || "")
 
 +
 
@@ -1032,7 +1060,7 @@ feature.properties["Arrêté"]
 
 :
 
-"demande-" + (feature.properties["description"] || "");
+"demande-" + (feature.properties["Titre"] || "");
 
 const itemTrouve = document.querySelector(
 '[data-numero="' + numeroRecherche + '"]'
@@ -1107,8 +1135,8 @@ statut +
 "<b>Arrêté :</b> "
 +(feature.properties["Arrêté"]||"")
 
-+"<br><b>Description :</b> "
-+(feature.properties["description"]||"")
++"<br><b>Titre :</b> "
++(feature.properties["Titre"]||"")
 
 +"<br><b>Type :</b> "
 +(feature.properties["Type"]||"")
@@ -1126,27 +1154,71 @@ sticky:true
 );
 
 layer.bindPopup(
-statut +
+'<div style="min-width:260px;">' +
 
-"<b>Arrêté :</b> "
-+(feature.properties["Arrêté"]||"")
+'<div style="font-size:18px;font-weight:bold;">' +
+(feature.properties["Arrêté"] || "Demande en cours") +
+'</div>' +
 
-+"<br><b>Description :</b> "
-+(feature.properties["description"]||"")
+'<div style="font-size:15px;font-weight:600;margin-top:4px;">' +
+(feature.properties["Titre"] || "") +
+'</div>' +
 
-+"<br><b>Type :</b> "
-+(feature.properties["Type"]||"")
+'<div style="margin-top:8px;color:' +
+getColor(feature.properties["Type"]) +
+';font-weight:bold;">● ' +
+(feature.properties["Type"] || "") +
+'</div>' +
 
-+"<br><b>Date début :</b> "
-+(feature.properties["Date début"]||"")
+'<div style="font-size:12px;color:#666;margin-top:4px;">' +
+formatDateFR(feature.properties["Date début"]) +
+' → ' +
+formatDateFR(feature.properties["Date fin"]) +
+'</div>' +
 
-+"<br><b>Date fin :</b> "
-+(feature.properties["Date fin"]||"")
+'<hr style="margin:10px 0;">' +
+
+(feature.properties["Détail"])
+
+?
+
+'<div style="font-size:13px;color:#555;">' +
+feature.properties["Détail"] +
+'</div>'
+
+:
+
+''
+
+'</div>',
+{
+maxWidth: 320
+}
 );
+
 
 }
 
 }).addTo(map);
+
+[
+"Déviation",
+"Circulation restreinte",
+"Circulation alternée",
+"Route barrée"
+].forEach(function(typeRecherche){
+
+couche.eachLayer(function(layer){
+
+if(layer.feature.properties["Type"] === typeRecherche){
+
+layer.bringToFront();
+
+}
+
+});
+
+});
 
 mettreAJourPanneau(data);
 
