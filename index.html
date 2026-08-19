@@ -23,10 +23,10 @@ position:absolute;
 top:75px;
 left:10px;
 
-width:340px;
-max-height:88vh;
+width:360px;
+max-height:85vh;
 
-overflow:auto;
+overflow:hidden;
 
 z-index:1000;
 
@@ -67,19 +67,38 @@ border-bottom:1px solid #ddd;
 
 #sidebar-content{
 
-overflow-y:auto;
+overflow:hidden;
 
 padding-top:10px;
 
 flex-grow:1;
-}
-
-#toolbar{
 
 display:flex;
 flex-direction:column;
-gap:8px;
+}
 
+.date-row{
+display:flex;
+gap:8px;
+}
+
+.date-col{
+flex:1;
+display:flex;
+flex-direction:column;
+}
+.button-row{
+display:flex;
+gap:8px;
+}
+
+.button-row button{
+flex:1;
+}
+#toolbar{
+display:flex;
+flex-direction:column;
+gap:8px;
 margin-bottom:15px;
 }
 
@@ -101,6 +120,54 @@ cursor:pointer;
 #listeArretes{
 
 font-size:14px;
+
+flex-grow:1;
+
+overflow-y:auto;
+
+position:relative;
+
+min-height:0;
+}
+#periodeInfo{
+
+font-size:14px;
+line-height:1.4;
+
+padding:10px;
+
+background:#f8f9fa;
+
+border-left:4px solid #5aa9ff;
+
+border-radius:8px;
+
+margin-bottom:12px;
+
+}
+.statut{
+
+position:sticky;
+top:0;
+z-index:20;
+box-shadow:0 2px 4px rgba(0,0,0,0.08);
+margin-top:12px;
+
+padding:10px;
+
+background:#e9ecef;
+
+border-radius:8px;
+
+font-weight:bold;
+
+cursor:pointer;
+
+user-select:none;
+
+border-left:5px solid #666;
+
+transition:0.2s;
 }
 
 .groupe{
@@ -117,6 +184,11 @@ border-radius:6px;
 border-left:4px solid #999;
 }
 
+
+.statut:hover{
+
+background:#dde3e8;
+}
 .arrete-item{
 
 padding:10px;
@@ -177,6 +249,8 @@ margin-right:6px;
 display:flex;
 flex-direction:column;
 gap:4px;
+
+margin-bottom:14px;
 }
 
 </style>
@@ -193,17 +267,27 @@ gap:4px;
 
 <div id="toolbar">
 
+<div class="date-row">
+
+<div class="date-col">
 <label>Date début</label>
 <input type="date" id="dateDebut">
+</div>
 
+<div class="date-col">
 <label>Date fin</label>
 <input type="date" id="dateFin">
+</div>
+
+</div>
 
 <label>Recherche arrêté</label>
 <input
 type="text"
 id="rechercheArrete"
 placeholder="Numéro ou texte">
+
+<div class="button-row">
 
 <button onclick="filtrerPeriode()">
 Filtrer
@@ -217,13 +301,17 @@ Tout afficher
 
 </div>
 
+</div>
+
 <div id="sidebar-content">
 
 <div id="periodeInfo"></div>
 
-<hr>
+<div id="typesHeader" class="statut" style="margin-top:8px;">
+▼ Types d'arrêtés
+</div>
 
-<div class="type-filters">
+<div id="typesContainer" class="type-filters">
 
 <label>
 <input type="checkbox"
@@ -257,9 +345,16 @@ checked>
 Circulation restreinte
 </label>
 
+<label>
+<input type="checkbox"
+class="typeFilter"
+value="Occupation de voirie"
+checked>
+Occupation de voirie
+</label>
+  
 </div>
 
-<hr>
 
 <div id="listeArretes"></div>
 
@@ -274,6 +369,26 @@ Circulation restreinte
 <script>
 
 const map=L.map('map').setView([44.74,-0.53],13);
+map.on("click", function(){
+
+if(coucheSelection){
+
+map.removeLayer(coucheSelection);
+coucheSelection = null;
+
+}
+
+if(itemSelectionne){
+
+itemSelectionne.style.background = "#fafafa";
+itemSelectionne.style.borderColor = "#e5e5e5";
+itemSelectionne.style.boxShadow = "none";
+
+itemSelectionne = null;
+
+}
+
+});
 
 L.tileLayer(
 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -292,7 +407,9 @@ opacity:0.70
 
 let donnees;
 let couche;
-
+let coucheSelection = null;
+let itemSelectionne = null;
+  
 function parseDate(v){
 
 if(!v || v==="NULL"){
@@ -326,7 +443,7 @@ case "Déviation":
 return "#09a33d";
 
 case "Circulation alternée":
-return "#ffd700";
+return "#ff8800";
 
 case "Circulation restreinte":
 return "#7a3db8";
@@ -334,12 +451,42 @@ return "#7a3db8";
 case "Limitation vitesse":
 return "#0080ff";
 
+case "Occupation de voirie":
+return "#ff8c00";
+
 default:
 return "#3388ff";
 }
 
 }
+function getHighlightColor(type){
 
+switch(type){
+
+case "Route barrée":
+return "#ff0000";
+
+case "Déviation":
+return "#00ff66";
+
+case "Circulation alternée":
+return "#ff9900";
+
+case "Circulation restreinte":
+return "#cc00ff";
+
+case "Limitation vitesse":
+return "#00ccff";
+
+case "Occupation de voirie":
+return "#ff6600";
+
+default:
+return "#00ffff";
+
+}
+
+}
 function getTypesSelectionnes(){
 
 return Array.from(
@@ -365,6 +512,42 @@ return d.toLocaleDateString("fr-FR");
 
 }
 
+function getStatut(feature){
+
+const aujourdHui = new Date();
+
+const debut =
+parseDate(feature.properties["Date début"]);
+
+let fin =
+parseDate(feature.properties["Date fin"]);
+
+const numero =
+feature.properties["Arrêté"];
+
+if(
+!numero ||
+numero.trim()===""
+){
+return "📋 Demandes en cours";
+}
+
+if(!fin){
+fin = new Date(2999,11,31);
+}
+
+if(fin < aujourdHui){
+return "⚫ Arrêtés passés";
+}
+
+if(debut > aujourdHui){
+return "🟡 Arrêtés futurs";
+}
+
+return "🟢 Arrêtés en cours";
+
+}
+  
 function mettreAJourPanneau(data){
 
 const info =
@@ -381,9 +564,30 @@ document.getElementById("dateDebut").value;
 const fin =
 document.getElementById("dateFin").value;
 
+const nbArretes = new Set(
+data.features.map(f =>
+
+f.properties["Arrêté"] &&
+f.properties["Arrêté"].trim() !== ""
+
+?
+
+f.properties["Arrêté"]
+
+:
+
+"demande-" + f.id
+
+)
+).size;
+
 info.innerHTML =
 
-"<b>Période affichée</b><br>"
+"<b>" + nbArretes + " arrêtés affichés</b><br>"
+
++
+
+"📅 "
 
 +
 
@@ -395,106 +599,274 @@ info.innerHTML =
 
 +
 
-(fin ? formatDateFR(fin) : "Toutes dates")
-
-+
-
-"<br><br><b>"
-
-const nbArretes = new Set(
-data.features.map(
-f => f.properties["Arrêté"]
-)
-).size;
-
-+
-nbArretes
-+
-" arrêtés affichés";
+(fin ? formatDateFR(fin) : "Toutes dates");
 
 const groupes = {};
 
 data.features.forEach(function(feature){
 
-const type =
-feature.properties["Type"] || "Autres";
-
+const statut =
+getStatut(feature);
 const numero =
-feature.properties["Arrêté"] || "Sans numéro";
 
-if(!groupes[type]){
-groupes[type] = {};
+feature.properties["Arrêté"] &&
+feature.properties["Arrêté"].trim() !== ""
+
+?
+
+feature.properties["Arrêté"]
+
+:
+
+"demande-" +
+(feature.properties["description"] || "");
+
+if(!groupes[statut]){
+groupes[statut] = {};
 }
 
-if(!groupes[type][numero]){
-groupes[type][numero] = [];
+if(!groupes[statut][numero]){
+groupes[statut][numero] = [];
 }
 
-groupes[type][numero].push(feature);
+groupes[statut][numero].push(feature);
 
 });
 
-Object.keys(groupes)
-.sort()
-.forEach(function(type){
+const ordreStatuts = [
 
-const titre =
+"📋 Demandes en cours",
+"🟢 Arrêtés en cours",
+"🟡 Arrêtés futurs",
+"⚫ Arrêtés passés"
+
+];
+
+ordreStatuts.forEach(function(statut){
+
+if(!groupes[statut]){
+return;
+}
+
+const blocStatut =
+document.createElement("div");
+if(statut==="📋 Demandes en cours"){
+blocStatut.style.background="#fff4d6";
+}
+
+if(statut==="🟢 Arrêtés en cours"){
+blocStatut.style.background="#e8f7e8";
+}
+
+if(statut==="🟡 Arrêtés futurs"){
+blocStatut.style.background="#fffbe0";
+}
+
+if(statut==="⚫ Arrêtés passés"){
+blocStatut.style.background="#f2f2f2";
+}
+blocStatut.className =
+"statut";
+
+const nbStatut =
+Object.keys(groupes[statut]).length;
+
+blocStatut.innerHTML =
+
+statut === "🟢 Arrêtés en cours"
+
+?
+
+"▼ " + statut + " (" + nbStatut + ")"
+
+:
+
+"▶ " + statut + " (" + nbStatut + ")";
+
+liste.appendChild(blocStatut);
+
+const contenuStatut =
 document.createElement("div");
 
-titre.className = "groupe";
+contenuStatut.style.display =
+statut === "🟢 Arrêtés en cours"
+? "block"
+: "none";
 
-titre.innerHTML =
+liste.appendChild(contenuStatut);
 
-'<span style="color:'
-+
-getColor(type)
-+
-';font-size:18px;">●</span> '
-+
-type
-+
-' ('
-+
-Object.keys(groupes[type]).length
-+
-')';
+blocStatut.onclick = function(){
 
-liste.appendChild(titre);
+if(contenuStatut.style.display === "none"){
 
-Object.keys(groupes[type])
+contenuStatut.style.display = "block";
+
+blocStatut.innerHTML =
+"▼ " + statut + " (" + nbStatut + ")";
+
+}
+else{
+
+contenuStatut.style.display = "none";
+
+blocStatut.innerHTML =
+"▶ " + statut + " (" + nbStatut + ")";
+
+}
+
+};
+
+Object.keys(groupes[statut])
 
 .sort()
 
 .forEach(function(numero){
 
 const features =
-groupes[type][numero];
+groupes[statut][numero];
 
 const premiereFeature =
 features[0];
 
 const item =
 document.createElement("div");
-
+item.dataset.numero = numero;
 item.className =
 "arrete-item";
+
+const types = [
+...new Set(
+features
+.map(f => f.properties["Type"])
+.filter(t => t && t !== "Déviation")
+)
+];
+
+let typesHtml = "";
+if(types.length === 0){
+
+return;
+
+}
+types.forEach(function(type){
+
+typesHtml +=
+
+'<span style="color:'
++
+getColor(type)
++
+';font-size:12px;font-weight:bold;">● '
++
+type
++
+'</span><br>';
+
+});
+
+const titreArrete =
+
+numero.startsWith("demande-")
+
+?
+
+premiereFeature.properties["description"]
+
+:
+
+numero;
+const descriptionHtml =
+
+numero.startsWith("demande-")
+
+?
+
+""
+
+:
+
+'<div style="font-size:12px;color:#666;">'
+
++
+
+(premiereFeature.properties["description"] || "")
+
++
+
+'</div>';
 
 item.innerHTML =
 
 '<div style="font-weight:bold;">'
+
 +
-numero
+
+titreArrete
+
 +
+
 '</div>'
+
 +
-'<div style="font-size:12px;color:#666;">'
+
+descriptionHtml
+
 +
-(premiereFeature.properties["description"] || "")
+
+'<div style="font-size:11px;color:#888;">'
+
 +
+
+formatDateFR(
+premiereFeature.properties["Date début"]
+)
+
++
+
+' → '
+
++
+
+formatDateFR(
+premiereFeature.properties["Date fin"]
+)
+
++
+
+'</div>'
+
++
+
+'<div style="margin-top:4px;">'
+
++
+
+typesHtml
+
++
+
 '</div>';
 
 item.onclick = function(){
+if(itemSelectionne){
 
+itemSelectionne.style.background = "#fafafa";
+itemSelectionne.style.borderColor = "#e5e5e5";
+itemSelectionne.style.boxShadow = "none";
+
+}
+
+item.style.background = "#dff0ff";
+item.style.borderColor = "#5aa9ff";
+item.style.boxShadow = "0 0 0 2px #5aa9ff";
+
+itemSelectionne = item;
+  
+if(coucheSelection){
+
+map.removeLayer(coucheSelection);
+
+}
 const groupeLayer =
 L.featureGroup();
 
@@ -505,7 +877,41 @@ L.geoJSON(f)
 );
 
 });
+coucheSelection =
+L.geoJSON(features,{
 
+style:function(){
+
+return{
+
+color:getHighlightColor(
+features[0].properties["Type"]
+),
+
+fillColor:getHighlightColor(
+features[0].properties["Type"]
+),
+
+weight:5,
+
+fillOpacity:0.25,
+
+opacity:1,
+dashArray:
+(
+!features[0].properties["Arrêté"] ||
+features[0].properties["Arrêté"].trim()===""
+)
+?
+"8 8"
+:
+null,
+
+};
+
+}
+
+}).addTo(map);
 if(
 groupeLayer.getBounds().isValid()
 ){
@@ -523,13 +929,11 @@ map.setZoom(16);
 
 }
 
+features.forEach(function(f){
+
 couche.eachLayer(function(layer){
 
-if(
-layer.feature &&
-layer.feature.properties &&
-layer.feature.properties["Arrêté"] === numero
-){
+if(layer.feature === f){
 
 layer.openPopup();
 
@@ -537,17 +941,17 @@ layer.openPopup();
 
 });
 
+});
+
 };
 
-liste.appendChild(item);
-
+contenuStatut.appendChild(item);
 
 });
 
 });
 
 }
-
 function dessiner(data){
 
 if(couche){
@@ -560,10 +964,14 @@ style:function(feature){
 
 const type=
 feature.properties["Type"];
+const estDemande =
 
-const estDemande=
-feature.properties["Arrêté"]===
-"Demande en cours";
+!feature.properties["Arrêté"]
+
+||
+
+feature.properties["Arrêté"].trim()==="";
+
 
 return{
 
@@ -592,14 +1000,105 @@ onEachFeature:function(feature,layer){
 let statut="";
 
 if(
-feature.properties["Arrêté"]===
-"Demande en cours"
+
+!feature.properties["Arrêté"]
+
+||
+
+feature.properties["Arrêté"].trim()===""
+
 ){
 
 statut =
 "<span style='color:red'><b>⚠ DEMANDE EN COURS</b></span><br>";
 
 }
+layer.on("click", function(){
+if(itemSelectionne){
+
+itemSelectionne.style.background = "#fafafa";
+itemSelectionne.style.borderColor = "#e5e5e5";
+
+}
+
+const numeroRecherche =
+
+feature.properties["Arrêté"] &&
+feature.properties["Arrêté"].trim() !== ""
+
+?
+
+feature.properties["Arrêté"]
+
+:
+
+"demande-" + (feature.properties["description"] || "");
+
+const itemTrouve = document.querySelector(
+'[data-numero="' + numeroRecherche + '"]'
+);
+
+if(itemTrouve){
+
+itemTrouve.style.background = "#dff0ff";
+itemTrouve.style.borderColor = "#5aa9ff";
+itemTrouve.style.boxShadow = "0 0 0 2px #5aa9ff";
+
+itemTrouve.scrollIntoView({
+  behavior: "smooth",
+  block: "center"
+});
+itemSelectionne = itemTrouve;
+
+}
+
+if(coucheSelection){
+
+map.removeLayer(coucheSelection);
+
+}
+
+coucheSelection =
+L.geoJSON(feature,{
+
+style:function(){
+
+return{
+
+color:getHighlightColor(
+feature.properties["Type"]
+),
+
+fillColor:getHighlightColor(
+feature.properties["Type"]
+),
+
+weight:5,
+
+fillOpacity:
+feature.geometry.type.includes("Polygon")
+? 0.25
+: 0,
+
+opacity:1,
+
+dashArray:
+(
+!feature.properties["Arrêté"] ||
+feature.properties["Arrêté"].trim()===""
+)
+?
+"8 8"
+:
+null
+
+};
+
+}
+
+}).addTo(map);
+
+});
 
 layer.bindTooltip(
 
@@ -767,7 +1266,7 @@ dessiner(donnees);
 
 }
 
-fetch("Arretes circulation.geojson")
+fetch("arretes_circulation.geojson")
 
 .then(r=>r.json())
 
@@ -783,7 +1282,7 @@ aujourdHui.toISOString().split("T")[0];
 
 document.getElementById("dateFin").value =
 aujourdHui.toISOString().split("T")[0];
-const actifs={
+const visibles={
 
 type:"FeatureCollection",
 
@@ -798,6 +1297,18 @@ let fin=
 parseDate(
 f.properties["Date fin"]
 );
+
+if(
+
+!f.properties["Arrêté"]
+
+||
+
+f.properties["Arrêté"].trim()===""
+
+){
+return true;
+}
 
 if(!fin){
 
@@ -817,7 +1328,7 @@ aujourdHui<=fin
 
 };
 
-dessiner(actifs);
+dessiner(visibles);
 
 if(
 couche &&
@@ -858,9 +1369,10 @@ div.innerHTML=
 
 '<div><span class="color-box" style="background:#d7191c"></span>Route barrée</div>'+
 '<div><span class="color-box" style="background:#09a33d"></span>Déviation</div>'+
-'<div><span class="color-box" style="background:#ffd700"></span>Circulation alternée</div>'+
+'<div><span class="color-box" style="background:#ff8800"></span>Circulation alternée</div>'+
 '<div><span class="color-box" style="background:#7a3db8"></span>Circulation restreinte</div>'+
 '<div><span class="color-box" style="background:#0080ff"></span>Limitation vitesse</div>'+
+'<div><span class="color-box" style="background:#ff8c00"></span>Occupation de voirie</div>'+
 '<hr>'+
 '<div><i>Pointillés = Demande en cours</i></div>';
 
@@ -869,7 +1381,52 @@ return div;
 };
 
 legend.addTo(map);
+const typesHeader =
+document.getElementById("typesHeader");
 
+const typesContainer =
+document.getElementById("typesContainer");
+
+function majTitreTypes(){
+
+const nb =
+document.querySelectorAll(".typeFilter:checked").length;
+
+const symbole =
+typesContainer.style.display === "none"
+? "▶"
+: "▼";
+
+typesHeader.innerHTML =
+symbole + " Types d'arrêtés (" + nb + "/5)";
+}
+
+majTitreTypes();
+
+typesHeader.onclick = function(){
+
+if(typesContainer.style.display === "none"){
+
+typesContainer.style.display = "flex";
+
+}
+else{
+
+typesContainer.style.display = "none";
+
+}
+
+majTitreTypes();
+
+};
+
+document
+.querySelectorAll(".typeFilter")
+.forEach(c => {
+
+c.addEventListener("change", majTitreTypes);
+
+});
 </script>
 
 </body>
