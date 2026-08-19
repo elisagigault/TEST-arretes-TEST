@@ -1154,6 +1154,7 @@ sticky:true
 );
 
 layer.bindPopup(
+
 '<div style="min-width:260px;">' +
 
 '<div style="font-size:18px;font-weight:bold;">' +
@@ -1176,11 +1177,13 @@ formatDateFR(feature.properties["Date début"]) +
 formatDateFR(feature.properties["Date fin"]) +
 '</div>' +
 
-'<hr style="margin:10px 0;">' +
+(
 
-(feature.properties["Détail"])
+feature.properties["Détail"]
 
 ?
+
+'<hr style="margin:10px 0;">' +
 
 '<div style="font-size:13px;color:#555;">' +
 feature.properties["Détail"] +
@@ -1190,10 +1193,16 @@ feature.properties["Détail"] +
 
 ''
 
+)
+
++
+
 '</div>',
+
 {
-maxWidth: 320
+maxWidth:320
 }
+
 );
 
 
